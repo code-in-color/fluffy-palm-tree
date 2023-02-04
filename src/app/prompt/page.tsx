@@ -1,25 +1,69 @@
 "use client"
 
-import { useForm, useWatch } from "react-hook-form"
+import { CompletionRequest } from "@/pages/api/completion"
+import React, { useState } from "react"
+import { useForm } from "react-hook-form"
+
+const titleTemplate = (description: string) =>
+  `Create catchy and click-baity YouTube title that's 🔥 using the following video description:\n${description}`
+
+let renderCount = 0
 
 export default function Prompt() {
-  const { register, handleSubmit, formState, watch } = useForm()
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    watch,
+  } = useForm<CompletionRequest>({
+    defaultValues: {
+      prompt: "",
+      completionSize: undefined,
+    },
+  })
+  const [completion, setCompletion] = useState("")
+
+  React.useEffect(() => {
+    renderCount++
+    const fieldState = watch((state) => console.log(state))
+
+    return () => fieldState.unsubscribe()
+  }, [watch])
 
   return (
     <>
-      <form onSubmit={handleSubmit((data) => console.log(data))}>
-        <textarea {...(register("prompt"), { required: true, type: "text" })} />
-        {formState.errors.prompt && <p>A prompt must be specified.</p>}
+      <pre>{JSON.stringify({ renderCount, errors }, null, 2)}</pre>
+      <form
+        onSubmit={handleSubmit(async (data) => {
+          const { prompt, completionSize } = data
+          const response = await fetch("/api/completion", {
+            method: "POST",
+            body: JSON.stringify({
+              prompt: titleTemplate(prompt),
+              completionSize,
+            }),
+          })
+          const { success, completion } = await response.json()
+          if (success) {
+            setCompletion(completion)
+          }
+        })}
+      >
+        <textarea {...register("prompt", { required: true })} />
+        {errors.prompt && <p>A prompt must be specified.</p>}
 
-        <select {...register("content_size")}>
-          <option>Choose response length</option>
-          <option value="100">Short</option>
-          <option value="300">Medium</option>
-          <option value="600">Long</option>
+        <select {...register("completionSize")}>
+          <option value="">Choose response length</option>
+          <option value="s">Short</option>
+          <option value="m">Medium</option>
+          <option value="l">Long</option>
         </select>
         <input type="submit" />
       </form>
-      {/* <pre>{JSON.stringify(watch(), null, 2)}</pre> */}
+      <h2>Completion</h2>
+      {completion.split("\n").map((line, ix) => (
+        <p key={ix}>{line}</p>
+      ))}
     </>
   )
 }

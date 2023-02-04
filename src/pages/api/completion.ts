@@ -1,12 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from "next"
 import { OpenAI } from "@common/open-ai"
-import { AxiosError } from "axios"
+import axios, { AxiosError } from "axios"
 import { StatusCodes } from "http-status-codes"
 import { InProduction } from "@/common/constants"
 
 type CompletionSize = "s" | "m" | "l"
 
-type RequestBody = {
+export type CompletionRequest = {
   prompt: string
   completionSize?: CompletionSize
 }
@@ -38,12 +38,14 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<Data>
 ) {
-  const { prompt, completionSize } = req.body as RequestBody
+  const { prompt, completionSize } = JSON.parse(req.body) as CompletionRequest
   if (!prompt) {
     return res
       .status(StatusCodes.BAD_REQUEST)
       .json({ success: false, message: "Prompt not given." })
   }
+
+  !InProduction && console.log("Prompt\n", prompt)
 
   try {
     const completion = await OpenAI.createCompletion({
@@ -52,16 +54,21 @@ export default async function handler(
       max_tokens: completionSize ? getMaxTokens(completionSize) : 16,
     })
 
-    !InProduction && console.log("Text completion choices", completion.data)
+    !InProduction && console.log("Completions", completion.data)
 
     return res
       .status(StatusCodes.OK)
       .json({ success: true, completion: completion.data.choices[0].text })
   } catch (e) {
-    console.error((e as AxiosError).response)
+    if (axios.isAxiosError(e)) {
+      console.error("Completion::OpenAI Error\n", (e as AxiosError).response)
+    }
+
+    const error = e as Error
+    console.error("Completion::Error\n", error)
 
     return res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
-      .json({ success: false, message: (e as Error).message })
+      .json({ success: false, message: error.message })
   }
 }
