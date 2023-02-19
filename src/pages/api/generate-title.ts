@@ -4,12 +4,11 @@ import axios, { AxiosError } from "axios"
 import { StatusCodes } from "http-status-codes"
 import { InProduction } from "@/common/constants"
 
-type CompletionSize = "s" | "m" | "l"
-
-export type CompletionRequest = {
-  prompt: string
-  completionSize?: CompletionSize
+export type CreateTitleRequest = {
+  description: string
 }
+
+type CompletionSize = "s" | "m" | "l"
 
 type Data =
   | {
@@ -34,24 +33,30 @@ const getMaxTokens = (size: CompletionSize) => {
   }
 }
 
+const generatePrompt = (description: string) =>
+  `Create catchy and click-baity YouTube title that's 🔥 using the following video description\n --- \n${description}\n ---`
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<Data>
 ) {
-  const { prompt, completionSize } = JSON.parse(req.body) as CompletionRequest
-  if (!prompt) {
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ success: false, message: "Prompt not given." })
-  }
-
-  !InProduction && console.log("Prompt\n", prompt)
-
   try {
+    console.log("Req Body", {
+      body: req.body,
+    })
+
+    const { description } = JSON.parse(req.body) as CreateTitleRequest
+    if (!description) {
+      return res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ success: false, message: "A description was not given." })
+    }
+
+    !InProduction && console.log("Description\n", description)
     const completion = await OpenAI.createCompletion({
       model: "text-davinci-003",
-      prompt: prompt,
-      max_tokens: completionSize ? getMaxTokens(completionSize) : 16,
+      prompt: generatePrompt(description),
+      max_tokens: 16,
     })
 
     !InProduction && console.log("Completions", completion.data)
@@ -65,7 +70,7 @@ export default async function handler(
     }
 
     const error = e as Error
-    console.error("Completion::Error\n", error)
+    console.error("/completion Error ", error)
 
     return res
       .status(StatusCodes.INTERNAL_SERVER_ERROR)
