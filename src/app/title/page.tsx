@@ -1,24 +1,20 @@
 "use client"
 
-import { CompletionRequest } from "@/pages/api/completion"
+import { CreateTitleRequest } from "@/pages/api/generate-title"
 import React, { useState } from "react"
 import { useForm } from "react-hook-form"
 
-const titleTemplate = (description: string) =>
-  `Create catchy and click-baity YouTube title that's 🔥 using the following video description:\n${description}`
-
 let renderCount = 0
 
-export default function Prompt() {
+export default function TitleGenerator() {
   const {
     register,
     handleSubmit,
     formState: { errors },
     watch,
-  } = useForm<CompletionRequest>({
+  } = useForm<CreateTitleRequest>({
     defaultValues: {
-      prompt: "",
-      completionSize: undefined,
+      description: "",
     },
   })
   const [completion, setCompletion] = useState("")
@@ -35,12 +31,11 @@ export default function Prompt() {
       <pre>{JSON.stringify({ renderCount, errors }, null, 2)}</pre>
       <form
         onSubmit={handleSubmit(async (data) => {
-          const { prompt, completionSize } = data
-          const response = await fetch("/api/completion", {
+          const { description } = data
+          const response = await fetch("/api/generate-title", {
             method: "POST",
             body: JSON.stringify({
-              prompt: titleTemplate(prompt),
-              completionSize,
+              description,
             }),
           })
           const { success, completion } = await response.json()
@@ -49,15 +44,9 @@ export default function Prompt() {
           }
         })}
       >
-        <textarea {...register("prompt", { required: true })} />
-        {errors.prompt && <p>A prompt must be specified.</p>}
+        <textarea {...register("description", { required: true })} />
+        {errors.description && <p>A prompt must be specified.</p>}
 
-        <select {...register("completionSize")}>
-          <option value="">Choose response length</option>
-          <option value="s">Short</option>
-          <option value="m">Medium</option>
-          <option value="l">Long</option>
-        </select>
         <input type="submit" />
       </form>
       <h2>Completion</h2>
